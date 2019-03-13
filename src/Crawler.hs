@@ -15,8 +15,7 @@ import Control.Lens
 
 import Data.ByteString.Lazy (ByteString)
 import Data.ByteString.Lazy.Char8 (pack, unpack)
-import qualified Data.List as L
---import Data.Maybe
+import Data.List (nub)
 import Data.Set (Set, insert, notMember, empty)
 import qualified Data.Time.Clock as C
 
@@ -61,8 +60,8 @@ startRequesting' domain urlQueue visitedUrls recvChan sendChan = do
                     startRequesting' domain urlQueue visitedUrls recvChan sendChan
         -- Prioritize processing of results prior to initiating new http requests to prevent space leaks
         ((r:rs), _) -> do
-            let newLinks = L.filter (`notMember` visitedUrls) $ L.foldr1 (<>) $ map (extractAndRepairUrls domain) (r:rs)
-                newUrlQueue = L.nub $ urlQueue ++ newLinks
+            let newLinks = filter (`notMember` visitedUrls) $ foldr1 (<>) $ map (extractAndRepairUrls domain) (r:rs)
+                newUrlQueue = nub $ urlQueue ++ newLinks
             startRequesting' domain newUrlQueue visitedUrls recvChan sendChan
         -- Send Requests when there are no responses to process
         (_, (u:us)) -> do
@@ -83,7 +82,7 @@ get url chan = do
         Left e  -> do
             putStrLn ""
             putStrLn $ "Url: " ++ url
-            putStrLn $ "Error: " ++ (L.take 50 $ show e) 
+            putStrLn $ "Error: " ++ (take 50 $ show e) 
             putStrLn ""
 
 
