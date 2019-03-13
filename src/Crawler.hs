@@ -50,7 +50,6 @@ startRequesting domain sendChan = do
 startRequesting' :: String -> [String] -> Set String -> Chan (ByteString) -> Chan (ByteString) -> IO ()
 startRequesting' domain urlQueue visitedUrls recvChan sendChan = do
     results <- checkAllChanContents recvChan
-    --results <- checkChan recvChan
     case (results, urlQueue) of
         --  Wait for another request to finish if no results or urls in queue
         ([], []) -> do
@@ -60,7 +59,7 @@ startRequesting' domain urlQueue visitedUrls recvChan sendChan = do
                 Just resp -> do
                     writeChan recvChan resp
                     startRequesting' domain urlQueue visitedUrls recvChan sendChan
-        -- Process results in chanel prior to initiating new http requests to prevent space leaks
+        -- Prioritize processing of results prior to initiating new http requests to prevent space leaks
         ((r:rs), _) -> do
             let newLinks = L.filter (`notMember` visitedUrls) $ L.foldr1 (<>) $ map (extractAndRepairUrls domain) (r:rs)
                 newUrlQueue = L.nub $ urlQueue ++ newLinks
