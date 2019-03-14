@@ -5,10 +5,22 @@ import Control.Lens
 import Data.ByteString.Lazy (ByteString)
 import Data.ByteString.Lazy.Char8 (pack, unpack)
 import Data.Char (chr, toLower)
+import Data.List (nub)
 import Data.Maybe (fromJust)
 
 import Text.HTML.TagSoup
 import Text.HTML.TagSoup.Match
+
+
+---- Provided Parsers
+--emailParser :: ByteString -> [String]
+--emailParser resp =
+    --where mailtos = getMailtoEmails resp
+          
+getMailtoEmails :: [Tag ByteString] -> [String]
+getMailtoEmails tags = nub $ map (drop 7) mailtos
+    where links   = filter (/= Nothing) $ map getLinkFromTag $ filter isLinkTag $ tags
+          mailtos = filter (\l -> take 7 l == "mailto:") $ map (map toLower . fromJust) links
 
 
 extractAndRepairUrls :: String -> ByteString -> [String]
