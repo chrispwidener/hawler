@@ -27,7 +27,7 @@ source-repository head
 
 library
   exposed-modules:
-      Crawler
+      Crawl
     , Parse
   other-modules:
       Paths_hawler
@@ -43,6 +43,8 @@ library
     , tagsoup
     , lens
     , time
+    , regex
+    , http-types
   default-language: Haskell2010
 
 executable hawler-exe
@@ -59,7 +61,6 @@ executable hawler-exe
     , wreq
     , async
     , bytestring
-    , curl
   default-language: Haskell2010
 
 test-suite hawler-test
