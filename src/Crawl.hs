@@ -9,7 +9,7 @@ import Control.Exception
 import Control.Lens
 
 import Data.ByteString.Lazy (ByteString)
-import Data.ByteString.Lazy.Char8 (pack, unpack)
+--import Data.ByteString.Lazy.Char8 (pack, unpack)
 import Data.List (nub, sort)
 import Data.Set (Set, insert, notMember, empty, size)
 
@@ -21,11 +21,12 @@ import System.Timeout
 
 data CrawlOpts a = CrawlOpts {
       delay :: Int
-    , sChan :: Chan (Domain, [a])
+    , sChan :: Chan (Id, Domain, [a])
     , rChan :: Chan ByteString
     , limit :: Int
 }
 
+type Id          = Integer
 type Domain      = String
 type Url         = String
 type UrlQueue    = [String]
@@ -34,21 +35,21 @@ type VisitedUrls = Set String
 
     --- API Functions
 
-crawlDefaults :: Ord a => Domain -> Parser [a] -> Chan (Domain, [a]) -> IO ()
-crawlDefaults domain parser sendChan = do
+crawlDefaults :: Ord a => Id-> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> IO ()
+crawlDefaults id' domain parser sendChan = do
     recvChan <- newChan
     let opts = CrawlOpts 1000 sendChan recvChan 0
-    crawlWithOpts domain parser opts
+    crawlWithOpts id' domain parser opts
 
-crawlWithOpts :: Ord a => Domain -> Parser [a] -> CrawlOpts a -> IO ()
-crawlWithOpts domain parser opts = do
-    _ <- forkIO $ startRequesting domain parser [domain] empty opts []
+crawlWithOpts :: Ord a => Id -> Domain -> Parser [a] -> CrawlOpts a -> IO ()
+crawlWithOpts id' domain parser opts = do
+    _ <- forkIO $ startRequesting id' domain parser [domain] empty opts []
     return ()
 
     --- Internal Functions
 
-startRequesting :: Ord a => Domain -> Parser [a] -> UrlQueue -> VisitedUrls -> CrawlOpts a -> [a] -> IO ()
-startRequesting domain parse urlQueue visitedUrls opts results = do
+startRequesting :: Ord a => Id -> Domain -> Parser [a] -> UrlQueue -> VisitedUrls -> CrawlOpts a -> [a] -> IO ()
+startRequesting id' domain parse urlQueue visitedUrls opts results = do
     let recvChan  = rChan  opts
         sendChan  = sChan  opts
         deelay    = delay  opts
@@ -57,7 +58,7 @@ startRequesting domain parse urlQueue visitedUrls opts results = do
     --- Break if pageLimit is set and we're over the limit
     if pageLimit /= 0 && size visitedUrls > pageLimit 
         then do 
-            writeChan sendChan (domain, results)
+            writeChan sendChan (id', domain, results)
             return ()
         else do 
 
@@ -68,23 +69,23 @@ startRequesting domain parse urlQueue visitedUrls opts results = do
                     response <- waitThenCheckChan recvChan
                     case response of
                         Nothing   -> do
-                            writeChan sendChan (domain, results)
+                            writeChan sendChan (id', domain, results)
                             return ()
                         Just resp -> do
                             writeChan recvChan resp
-                            startRequesting domain parse urlQueue visitedUrls opts results
+                            startRequesting id' domain parse urlQueue visitedUrls opts results
                 -- Prioritize processing of results prior to initiating new http requests to prevent space leaks
                 ((r:rs), _) -> do
                     let newLinks = filter (`notMember` visitedUrls) $ foldr1 (<>) $ map (extractAndRepairUrls domain) (r:rs)
                         newUrlQueue = nub $ urlQueue ++ newLinks
                         parseResult = parse r
                         newResults  = sort $ nub $ results ++ parseResult
-                    startRequesting domain parse newUrlQueue visitedUrls opts newResults
+                    startRequesting id' domain parse newUrlQueue visitedUrls opts $! newResults
                 -- Send Requests when there are no responses to process
                 (_, (u:us)) -> do
                     _ <- forkIO $ get u recvChan
                     threadDelay (deelay * 1000)
-                    startRequesting domain parse us (insert u visitedUrls) opts results
+                    startRequesting id' domain parse us (insert u visitedUrls) opts results
 
 get :: String -> Chan (ByteString) -> IO ()
 get url chan = do
@@ -93,16 +94,17 @@ get url chan = do
     resp <- try (W.get url) :: IO (Either SomeException (W.Response ByteString))
     case resp of
         Right r -> do
-            putStrLn ""
-            putStrLn $ "Url: " ++ url
-            putStrLn $ "Status code: " ++ (show $ r ^. W.responseStatus)
-            putStrLn ""
+            --putStrLn ""
+            --putStrLn $ "Url: " ++ url
+            --putStrLn $ "Status code: " ++ (show $ r ^. W.responseStatus)
+            --putStrLn ""
             writeChan chan $ r ^. W.responseBody
-        Left e  -> do
-            putStrLn ""
-            putStrLn $ "Url: " ++ url
-            putStrLn $ "Error: " ++ (take 50 $ show e) 
-            putStrLn ""
+        Left _  -> do
+            --putStrLn ""
+            --putStrLn $ "Url: " ++ url
+            --putStrLn $ "Error: " ++ (take 50 $ show e) 
+            putStrLn "e"
+            return ()
 
 
 checkAllChanContents :: Chan a -> IO [a]

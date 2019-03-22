@@ -2,7 +2,7 @@
 
 module Parse where
 
-import Control.Lens ((^.))
+--import Control.Lens ((^.))
 
 import Data.ByteString.Lazy (ByteString)
 import Data.ByteString.Lazy.Char8 (pack, unpack)
@@ -13,6 +13,7 @@ import Data.Maybe (fromJust)
 import Text.HTML.TagSoup
 import Text.HTML.TagSoup.Match
 import Text.RE.TDFA.ByteString.Lazy
+import qualified Text.RE.TDFA.String as SRE
 
 
 ---- Provided Parsers
@@ -46,6 +47,7 @@ dropUrlPrefix  ('h':'t':'t':'p':'s':':':'/':'/':'w':'w':'w':'.':rest) = rest
 dropUrlPrefix  ('h':'t':'t':'p':':':'/':'/':'w':'w':'w':'.':rest)     = rest
 dropUrlPrefix  ('h':'t':'t':'p':'s':':':'/':'/':rest) = rest
 dropUrlPrefix  ('h':'t':'t':'p':':':'/':'/':rest)     = rest
+dropUrlPrefix _ = ""
 
 sanitizeUrl :: String -> String -> String
 sanitizeUrl domain url 
@@ -65,6 +67,7 @@ bsToString :: ByteString -> String
 bsToString bs = map (chr . fromEnum) (unpack bs)
 
 --  Verified
+domPat :: RE
 domPat = [re|(http://)?(www.)?[a-z0-9\-_]{4,25}\.(io|com|org|net|tv|church)|]
 
 ------------------------------
@@ -99,7 +102,8 @@ getLinkFromTag (TagOpen _ attrs) =
     case length filtered of
         0 -> Nothing
         _ -> Just $ bsToString $ snd $ head filtered
-    where filtered = filter (\(att, val) -> att == pack "href") attrs
+    where filtered = filter (\(att, _) -> att == pack "href") attrs
+getLinkFromTag _ = Nothing
 
 getTextFromTag :: Tag ByteString -> Maybe ByteString
 getTextFromTag (TagText x) = Just x
@@ -114,13 +118,15 @@ extractPatternFromTextTags pat tags = map unpack $ foldr1 (<>) regmatches
 ------- Email Related --------
 ------------------------------
 
-emailRegPat = [re|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-z]{2,5}|]
+emailRegPat :: RE
+emailRegPat = [re|\<[a-zA-Z0-9][a-zA-Z0-9._%+\-]{1,15}[^.\-\+_]@[a-zA-Z0-9\-]+\.[a-z]{2,5}|]
+--emailRegPat = [re|[a-zA-Z0-9._%+-]{1,15}@[a-zA-Z0-9.-]+.[a-z]{2,5}|]
 
 extractAllEmails :: [Tag ByteString] -> [String]
 extractAllEmails tags = nub $ extractMailtoEmails tags <> extractTextEmails tags
 
 extractMailtoEmails :: [Tag ByteString] -> [String]
-extractMailtoEmails tags = nub $ map (drop 7) mailtos
+extractMailtoEmails tags = nub $ map fromJust $ filter (/= Nothing) $ map (\str -> SRE.matchedText $ str SRE.?=~ emailRegPat) $ map (drop 7) mailtos
     where links   = filter (/= Nothing) $ map getLinkFromTag $ filter isLinkTag $ tags
           mailtos = filter (\l -> take 7 l == "mailto:") $ map (map toLower . fromJust) links
 
@@ -133,6 +139,7 @@ extractTextEmails tags = extractPatternFromTextTags emailRegPat tags
 ------------------------------
 
 -- Verified
+phoneRegPat :: RE
 phoneRegPat = [re|\(?[0-9]{3}\)?( |-|.|,)?[0-9]{3}( |-|.|,)[0-9]{4}|]
 
 extractPhoneNumbers :: [Tag ByteString] -> [String]
