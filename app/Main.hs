@@ -7,6 +7,7 @@ import Crawl
 import Parse 
 
 import Control.Concurrent.Chan
+import Data.List (unlines)
 
 import System.IO
 
@@ -35,7 +36,7 @@ waitAndPrint :: Int -> Chan (Id, String, [String]) -> IO ()
 waitAndPrint 0 _    = return ()
 waitAndPrint n chan = do
     (_, dom, results) <- readChan chan
-    putStrLn $ "Found " ++ show (length results) ++ " on " ++ dom
+    putStr $ "\nSearched: " ++ dom ++ "and found:\n" ++ unlines results ++ "\n"
     waitAndPrint (n-1) chan
 
 startNewCrawl :: Chan (Id, Domain, [String]) -> Id -> Domain -> IO ()
