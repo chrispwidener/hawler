@@ -51,16 +51,17 @@ startRequesting id' opts parse results = do
         urlQueue    = urlQ  opts
         visitedUrls = vUrls opts
 
-    --- Break if pageLimit is set and we're over the limit
+    --- Reaturn current results if pageLimit is set and we're over the limit
     if pageLimit /= 0 && size visitedUrls > pageLimit 
         then do 
             writeChan sendChan (id', domain, results)
             return ()
         else do 
-
             resps <- checkAllChanContents recvChan
             case (resps, urlQueue) of
-                --  Wait for another request to finish if no results or urls in queue
+
+                --  If there are no results to process or urls in queue then
+                --  wait 10 seconds for another request to finish 
                 ([], []) -> do
                     response <- waitThenCheckChan recvChan
                     case response of
@@ -70,7 +71,9 @@ startRequesting id' opts parse results = do
                         Just resp -> do
                             writeChan recvChan resp
                             startRequesting id' opts parse results
-                -- Prioritize processing of results prior to initiating new http requests to prevent space leaks
+
+                -- Prioritize processing of results prior to initiating 
+                -- new http requests.  This should help prevent space leaks
                 ((r:rs), _) -> do
                     let newLinks = filter (`notMember` visitedUrls) $ foldr1 (<>) $ map (extractAndRepairUrls domain) (r:rs)
                         newUrlQueue = nub $ urlQueue ++ newLinks
@@ -78,6 +81,7 @@ startRequesting id' opts parse results = do
                         newResults  = nub $ results ++ parseResult
                         newOpts     = opts { urlQ = newUrlQueue }
                     startRequesting id' newOpts parse $! newResults
+
                 -- Send Requests when there are no responses to process
                 (_, (u:us)) -> do
                     _ <- forkIO $ get u recvChan
@@ -86,23 +90,16 @@ startRequesting id' opts parse results = do
                     startRequesting id' newOpts parse results
 
 get :: String -> Chan (ByteString) -> IO ()
-get url chan = do
-    --let userAgent = B.pack "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
-        --opts = W.defaults & W.header hUserAgent .~ [userAgent]
-    resp <- try (W.get url) :: IO (Either SomeException (W.Response ByteString))
-    case resp of
-        Right r -> do
-            --putStrLn ""
-            --putStrLn $ "Url: " ++ url
-            --putStrLn $ "Status code: " ++ (show $ r ^. W.responseStatus)
-            --putStrLn ""
-            writeChan chan $ r ^. W.responseBody
-        Left _  -> do
-            --putStrLn ""
-            --putStrLn $ "Url: " ++ url
-            --putStrLn $ "Error: " ++ (take 50 $ show e) 
-            putStrLn "e"
-            return ()
+get url chan = go 1 url chan
+    where 
+        go 4 _ _            = return ()
+        go numAtts url chan = do
+            resp <- try (W.get url) :: IO (Either SomeException (W.Response ByteString))
+            case resp of
+                Right r -> do
+                    writeChan chan $ r ^. W.responseBody
+                Left _  -> do
+                    go (numAtts + 1) url chan
 
 
 checkAllChanContents :: Chan a -> IO [a]
