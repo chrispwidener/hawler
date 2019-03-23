@@ -14,9 +14,9 @@ import System.IO
 main :: IO ()
 main = do
     hSetBuffering stdout LineBuffering
-    chan  <- newChan
-    mapM_ (startNewCrawl chan 0) urls
-    waitAndPrint 10 chan
+    --chan  <- newChan
+    --mapM_ (startNewCrawl chan 0) urls
+    --waitAndPrint 10 chan
 
 urls :: [String]
 urls = [
@@ -31,7 +31,7 @@ urls = [
     , "http://www.firstchurchseattle.org/"
     , "http://www.blessed-sacrament.org/"
     ]
-
+{-
 waitAndPrint :: Int -> Chan (Id, String, [String]) -> IO ()
 waitAndPrint 0 _    = return ()
 waitAndPrint n chan = do
@@ -43,3 +43,4 @@ startNewCrawl :: Chan (Id, Domain, [String]) -> Id -> Domain -> IO ()
 startNewCrawl chan id' domain = do
     internalChan <- newChan
     crawlWithOpts id' domain emailParser (CrawlOpts 1000 chan internalChan 50)
+-}

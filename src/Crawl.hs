@@ -19,13 +19,6 @@ import System.Timeout
 
 ---- Data Types/Classes
 
-data CrawlOpts a = CrawlOpts {
-      delay :: Int
-    , sChan :: Chan (Id, Domain, [a])
-    , rChan :: Chan ByteString
-    , limit :: Int
-}
-
 type Id          = Integer
 type Domain      = String
 type Url         = String
@@ -37,8 +30,7 @@ type VisitedUrls = Set String
 
 crawlDefaults :: Ord a => Id-> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> IO ()
 crawlDefaults id' domain parser sendChan = do
-    recvChan <- newChan
-    let opts = CrawlOpts 1000 sendChan recvChan 0
+    opts <- defaults sendChan
     crawlWithOpts id' domain parser opts
 
 crawlWithOpts :: Ord a => Id -> Domain -> Parser [a] -> CrawlOpts a -> IO ()
@@ -126,3 +118,40 @@ checkChan :: Chan a -> IO (Maybe a)
 checkChan chan = do
     x <- timeout (55000) (readChan chan)
     return x
+
+------ Options
+
+data Option = Delay Int | Limit Int | Depth Int | Prioritize [String] deriving (Eq)
+
+data CrawlOpts a = CrawlOpts {
+      sChan      :: Chan (Id, Domain, [a])
+    , rChan      :: Chan ByteString
+    , delay      :: Int
+    , limit      :: Int
+    , depth      :: Int
+    , prioritize :: [String]
+} 
+
+instance Show (CrawlOpts a) where
+    show (CrawlOpts _ _ del lim dep pri) = 
+        "Options:\nDelay: " ++ show del ++ 
+        "\nLimit: " ++ show lim ++ 
+        "\nDepth: " ++ show dep ++ 
+        "\nPriorities: " ++ show pri
+
+defaults :: Chan (Id, Domain, [a]) -> IO (CrawlOpts a)
+defaults chan = do
+    receiveChan <- newChan
+    return $ CrawlOpts chan receiveChan 1 0 0 []
+
+modifyDefaults :: CrawlOpts a -> [Option] -> CrawlOpts a
+modifyDefaults def opts = go def opts
+    where 
+        go :: CrawlOpts a -> [Option] -> CrawlOpts a
+        go opt []     = opt
+        go opt (o:os) =
+            case o of
+                Delay x       -> go (opt { delay = x }) os
+                Limit x       -> go (opt { limit = x }) os
+                Depth x       -> go (opt { depth = x }) os
+                Prioritize xs -> go (opt { prioritize = xs }) os
