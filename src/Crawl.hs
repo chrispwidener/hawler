@@ -30,22 +30,26 @@ type VisitedUrls = Set String
 
 crawlDefaults :: Ord a => Id-> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> IO ()
 crawlDefaults id' domain parser sendChan = do
-    opts <- defaults sendChan
-    crawlWithOpts id' domain parser opts
+    crawlWithOpts id' domain parser sendChan []
 
-crawlWithOpts :: Ord a => Id -> Domain -> Parser [a] -> CrawlOpts a -> IO ()
-crawlWithOpts id' domain parser opts = do
-    _ <- forkIO $ startRequesting id' domain parser [domain] empty opts []
+crawlWithOpts :: Ord a => Id -> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> [Option] -> IO ()
+crawlWithOpts id' domain parser sendChan opts = do
+    defs   <- defaults domain sendChan
+    let moddedOpts = modifyDefaults defs opts
+    _ <- forkIO $ startRequesting id' moddedOpts parser []
     return ()
 
     --- Internal Functions
 
-startRequesting :: Ord a => Id -> Domain -> Parser [a] -> UrlQueue -> VisitedUrls -> CrawlOpts a -> [a] -> IO ()
-startRequesting id' domain parse urlQueue visitedUrls opts results = do
-    let recvChan  = rChan  opts
-        sendChan  = sChan  opts
-        deelay    = delay  opts
-        pageLimit = limit  opts
+startRequesting :: Eq a => Id -> CrawlOpts a -> Parser [a] -> [a] -> IO ()
+startRequesting id' opts parse results = do
+    let domain      = dom   opts
+        recvChan    = rChan opts
+        sendChan    = sChan opts
+        delay       = del   opts
+        pageLimit   = limit opts
+        urlQueue    = urlQ  opts
+        visitedUrls = vUrls opts
 
     --- Break if pageLimit is set and we're over the limit
     if pageLimit /= 0 && size visitedUrls > pageLimit 
@@ -65,19 +69,21 @@ startRequesting id' domain parse urlQueue visitedUrls opts results = do
                             return ()
                         Just resp -> do
                             writeChan recvChan resp
-                            startRequesting id' domain parse urlQueue visitedUrls opts results
+                            startRequesting id' opts parse results
                 -- Prioritize processing of results prior to initiating new http requests to prevent space leaks
                 ((r:rs), _) -> do
                     let newLinks = filter (`notMember` visitedUrls) $ foldr1 (<>) $ map (extractAndRepairUrls domain) (r:rs)
                         newUrlQueue = nub $ urlQueue ++ newLinks
                         parseResult = parse r
-                        newResults  = sort $ nub $ results ++ parseResult
-                    startRequesting id' domain parse newUrlQueue visitedUrls opts $! newResults
+                        newResults  = nub $ results ++ parseResult
+                        newOpts     = opts { urlQ = newUrlQueue }
+                    startRequesting id' newOpts parse $! newResults
                 -- Send Requests when there are no responses to process
                 (_, (u:us)) -> do
                     _ <- forkIO $ get u recvChan
-                    threadDelay (deelay * 1000)
-                    startRequesting id' domain parse us (insert u visitedUrls) opts results
+                    threadDelay (delay * 1000)
+                    let newOpts = opts { urlQ = us, vUrls = insert u visitedUrls }
+                    startRequesting id' newOpts parse results
 
 get :: String -> Chan (ByteString) -> IO ()
 get url chan = do
@@ -124,25 +130,39 @@ checkChan chan = do
 data Option = Delay Int | Limit Int | Depth Int | Prioritize [String] deriving (Eq)
 
 data CrawlOpts a = CrawlOpts {
-      sChan      :: Chan (Id, Domain, [a])
-    , rChan      :: Chan ByteString
-    , delay      :: Int
-    , limit      :: Int
-    , depth      :: Int
-    , prioritize :: [String]
+      dom   :: Domain
+    , sChan :: Chan (Id, Domain, [a]) -- This is the chan the crawler will send results to
+    , rChan :: Chan ByteString        -- This is the internal chan the get requests will use to send responses
+    , del   :: Int                    -- Delay between requests to same domain (Milliseconds)
+    , limit :: Int                    -- Page visit limit for one domain, if it's 0 there is no limit
+    , depth :: Int                    -- 
+    , prio  :: [String]
+    , urlQ  :: UrlQueue
+    , vUrls :: VisitedUrls
 } 
 
 instance Show (CrawlOpts a) where
-    show (CrawlOpts _ _ del lim dep pri) = 
+    show (CrawlOpts dom _ _ del lim dep pri _ _) = 
         "Options:\nDelay: " ++ show del ++ 
-        "\nLimit: " ++ show lim ++ 
-        "\nDepth: " ++ show dep ++ 
-        "\nPriorities: " ++ show pri
+        "\nLimit: " ++         show lim ++ 
+        "\nDepth: " ++         show dep ++ 
+        "\nPriorities: " ++    show pri
 
-defaults :: Chan (Id, Domain, [a]) -> IO (CrawlOpts a)
-defaults chan = do
+-- Pass in a domain and the return chan to get defaults
+defaults :: Domain -> Chan (Id, Domain, [a]) -> IO (CrawlOpts a)
+defaults domain chan = do
     receiveChan <- newChan
-    return $ CrawlOpts chan receiveChan 1 0 0 []
+    return $ CrawlOpts {
+                  dom    = domain
+                , sChan  = chan 
+                , rChan  = receiveChan 
+                , del    = 1000
+                , limit  = 0 
+                , depth  = 0 
+                , urlQ   = [domain]
+                , vUrls  = empty
+                , prio   = []
+             }
 
 modifyDefaults :: CrawlOpts a -> [Option] -> CrawlOpts a
 modifyDefaults def opts = go def opts
@@ -151,7 +171,7 @@ modifyDefaults def opts = go def opts
         go opt []     = opt
         go opt (o:os) =
             case o of
-                Delay x       -> go (opt { delay = x }) os
+                Delay x       -> go (opt { del   = x }) os
                 Limit x       -> go (opt { limit = x }) os
                 Depth x       -> go (opt { depth = x }) os
-                Prioritize xs -> go (opt { prioritize = xs }) os
+                Prioritize xs -> go (opt { prio  = xs }) os

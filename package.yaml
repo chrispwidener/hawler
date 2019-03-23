@@ -24,6 +24,15 @@ dependencies:
 
 library:
   source-dirs: src
+  dependencies:
+  - wreq
+  - containers
+  - bytestring
+  - async
+  - tagsoup
+  - lens
+  - regex
+  - http-types
 
 executables:
   hawler-exe:
