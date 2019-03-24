@@ -161,7 +161,9 @@ crawlWithOpts id' domain parser sendChan opts = do
     return ()
 
 
-    --- Internal Functions
+------------------------------
+---- Internal Functions
+------------------------------
 
 startRequesting :: Eq a => Id -> CrawlOpts a -> Parser [a] -> [a] -> IO ()
 startRequesting id' opts parse results = do
