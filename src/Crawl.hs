@@ -57,11 +57,12 @@ Function: crawlDefaults
 
     Parameters:
 
-        Id:         
+        Id :: Int         
                 In case your domain isn't the unique identifier, you can 
                 include an Id to reference when the crawler sends the results.
                 Just set it to 0 if you don't care.
-        Domain:     
+
+        Domain :: String     
                 The site to crawl, it needs to include 'http://' and be the 'root' 
                 otherwise it will not work.
                     IE: 
@@ -70,12 +71,17 @@ Function: crawlDefaults
                         Bad:
                             google.com
                             http://google.com/news
-        Parser:
-                Your parser is any function of :: ByteString -> a
+
+        Parser :: ByteString -> a
+                Your parser is any function of type :: ByteString -> a
+                The crawler uses Network.Wreq to get the response and 
+                ^. responseBody to pass the body of the response to your parser.
                 The crawler returns a list of all the 'a's found while parsing.
-        Chan:
-                The chan is of type :: (Id, Domain, [a]), you just need to bind
-                the result of 'Control.Concurrent.newChan' to a variable and pass 
+
+        Chan :: Chan (Id, Domain [a])
+                The chan returns a tuple containing the Id, the Domain and the
+                list of results the parser found,  you just need to bind the
+                result of 'Control.Concurrent.newChan' to a variable and pass 
                 it in.  This is the channel that the crawler will send results to.  
 
                 The reason I have you pass in a channel rather than this function
