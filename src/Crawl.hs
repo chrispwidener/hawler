@@ -24,7 +24,7 @@ import Control.Exception
 import Control.Lens
 
 import Data.ByteString.Lazy (ByteString)
-import Data.List (nub)
+import Data.List (nub, partition, isSubsequenceOf)
 import Data.Set (Set, insert, notMember, empty, size)
 
 import qualified Network.Wreq as W
@@ -170,6 +170,7 @@ startRequesting id' opts parse results = do
         sendChan    = sChan opts
         delay       = del   opts
         pageLimit   = limit opts
+        priorities  = prio  opts
         urlQueue    = urlQ  opts
         visitedUrls = vUrls opts
 
@@ -201,7 +202,7 @@ startRequesting id' opts parse results = do
                         newUrlQueue = nub $ urlQueue ++ newLinks
                         parseResult = parse r
                         newResults  = nub $ results ++ parseResult
-                        newOpts     = opts { urlQ = newUrlQueue }
+                        newOpts     = opts { urlQ = prioritizeUrlQueue priorities newUrlQueue }
                     startRequesting id' newOpts parse $! newResults
 
                 -- Send Requests when there are no responses to process
@@ -289,3 +290,8 @@ modifyDefaults def (o:os) =
         Limit x       -> modifyDefaults (def { limit = x }) os
         Depth x       -> modifyDefaults (def { depth = x }) os
         Prioritize xs -> modifyDefaults (def { prio  = xs }) os
+
+
+prioritizeUrlQueue :: [String] -> UrlQueue -> UrlQueue
+prioritizeUrlQueue prios queue = prioritized ++ rest
+    where (prioritized, rest) = partition (\url -> any (\prio -> isSubsequenceOf prio url) prios) queue
