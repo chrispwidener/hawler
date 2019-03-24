@@ -72,11 +72,12 @@ Function: crawlDefaults
                             google.com
                             http://google.com/news
 
-        Parser :: ByteString -> a
-                Your parser is any function of type :: ByteString -> a
+        Parser :: Eq a => ByteString -> a
                 The crawler uses Network.Wreq to get the response and 
                 ^. responseBody to pass the body of the response to your parser.
                 The crawler returns a list of all the 'a's found while parsing.
+                The Eq requirement is so the crawler can de-dup the results as
+                it's crawling and extracting results
 
         Chan :: Chan (Id, Domain [a])
                 The chan returns a tuple containing the Id, the Domain and the

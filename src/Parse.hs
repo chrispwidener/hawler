@@ -1,8 +1,14 @@
 {-# LANGUAGE QuasiQuotes #-}
 
-module Parse where
+module Parse 
+(
+    -- Parsers
+    emailParser
 
---import Control.Lens ((^.))
+    -- Utility Functions
+  , extractAndRepairUrls
+
+) where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.ByteString.Lazy.Char8 (pack, unpack)
@@ -16,11 +22,9 @@ import Text.RE.TDFA.ByteString.Lazy
 import qualified Text.RE.TDFA.String as SRE
 
 
----- Provided Parsers
---  Would like to build the following default parsers:
---  1: Email
---  2: Phone number
---  3: Social Media links
+------------------------------
+----- Included Parsers
+------------------------------
 
 
 emailParser :: ByteString -> [String]
@@ -28,13 +32,12 @@ emailParser resp = extractAllEmails tags
     where tags = parseTags resp
 
 
-    --where mailtos = getMailtoEmails resp
-
-
 ------------------------------
---------- Url Related --------
+----- Internal 
 ------------------------------
 
+
+----- Url Related
 
 extractAndRepairUrls :: String -> ByteString -> [String]
 extractAndRepairUrls domain httpResp = filter (isOnDomain domain) $ map (sanitizeUrl domain) $ extractLinks $ parseTags httpResp
@@ -70,12 +73,10 @@ bsToString bs = map (chr . fromEnum) (unpack bs)
 domPat :: RE
 domPat = [re|(http://)?(www.)?[a-z0-9\-_]{4,25}\.(io|com|org|net|tv|church)|]
 
-------------------------------
---------- Tag Related --------
-------------------------------
 
+----- Tag Related
 
----- Types of Tags
+-- Types of Tags
 
 isLinkTag :: Tag ByteString -> Bool
 isLinkTag tag = tagOpen (== pack "a") (\_ -> True) tag
@@ -84,7 +85,7 @@ isTextTag :: Tag ByteString -> Bool
 isTextTag tag = tagText (const True) tag
 
 
----- Extraction of Information from Multiple Tags
+-- Extraction of Information from Multiple Tags
 
 extractLinks :: [Tag ByteString] -> [String]
 extractLinks tags = map fromJust $ filter (/= Nothing) maybeLinks
@@ -95,7 +96,7 @@ extractText :: [Tag ByteString] -> [ByteString]
 extractText tags = map fromJust $ map getTextFromTag $ filter isTextTag tags
 
 
----- Extraction of Information from Singular Tags
+-- Extraction of Information from Singular Tags
 
 getLinkFromTag :: Tag ByteString -> Maybe String 
 getLinkFromTag (TagOpen _ attrs) = 
@@ -114,13 +115,10 @@ extractPatternFromTextTags pat tags = map unpack $ foldr1 (<>) regmatches
         where textList = extractText tags
               regmatches = map (\str -> matches $ str *=~ pat) textList
 
-------------------------------
-------- Email Related --------
-------------------------------
+----- Email Related
 
 emailRegPat :: RE
 emailRegPat = [re|\<[a-zA-Z0-9][a-zA-Z0-9._%+\-]{1,15}[^.\-\+_]@[a-zA-Z0-9\-]+\.[a-z]{2,5}|]
---emailRegPat = [re|[a-zA-Z0-9._%+-]{1,15}@[a-zA-Z0-9.-]+.[a-z]{2,5}|]
 
 extractAllEmails :: [Tag ByteString] -> [String]
 extractAllEmails tags = nub $ extractMailtoEmails tags <> extractTextEmails tags
@@ -134,11 +132,8 @@ extractTextEmails :: [Tag ByteString] -> [String]
 extractTextEmails tags = extractPatternFromTextTags emailRegPat tags
 
 
-------------------------------
-------- Phone Related --------
-------------------------------
+----- Phone Related
 
--- Verified
 phoneRegPat :: RE
 phoneRegPat = [re|\(?[0-9]{3}\)?( |-|.|,)?[0-9]{3}( |-|.|,)[0-9]{4}|]
 
