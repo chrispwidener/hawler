@@ -1,6 +1,21 @@
-module Crawl where
+module Crawl 
+(
 
------   IMPORTS
+  -- Functions to Use Crawler
+    crawlDefaults
+  , crawlWithOpts
+
+  -- Crawler Options
+  , Option 
+    (
+         Delay
+       , Depth
+       , Limit
+       , Prioritize
+    )
+
+) where
+
 
 import Parse
 
@@ -9,28 +24,128 @@ import Control.Exception
 import Control.Lens
 
 import Data.ByteString.Lazy (ByteString)
---import Data.ByteString.Lazy.Char8 (pack, unpack)
-import Data.List (nub, sort)
+import Data.List (nub)
 import Data.Set (Set, insert, notMember, empty, size)
 
 import qualified Network.Wreq as W
 
 import System.Timeout
 
----- Data Types/Classes
+
+--------------------
+---- Types
+--------------------
+
 
 type Id          = Integer
 type Domain      = String
 type Url         = String
-type UrlQueue    = [String]
+type UrlQueue    = [Url]
 type Parser a    = ByteString -> a
 type VisitedUrls = Set String
 
-    --- API Functions
+
+data Option = Delay Int | Limit Int | Depth Int | Prioritize [String] deriving (Eq)
+
+--------------------
+---- API Functions
+--------------------
+
+{-
+
+Function: crawlDefaults
+
+    Parameters:
+
+        Id:         
+                In case your domain isn't the unique identifier, you can 
+                include an Id to reference when the crawler sends the results.
+                Just set it to 0 if you don't care.
+        Domain:     
+                The site to crawl, it needs to include 'http://' and be the 'root' 
+                otherwise it will not work.
+                    IE: 
+                        Good:
+                            http://google.com/
+                        Bad:
+                            google.com
+                            http://google.com/news
+        Parser:
+                Your parser is any function of :: ByteString -> a
+                The crawler returns a list of all the 'a's found while parsing.
+        Chan:
+                The chan is of type :: (Id, Domain, [a]), you just need to bind
+                the result of 'Control.Concurrent.newChan' to a variable and pass 
+                it in.  This is the channel that the crawler will send results to.  
+
+                The reason I have you pass in a channel rather than this function
+                return a channel is so that you can pass the same channel to multiple 
+                crawlers simultaneously.
+                
+    Defaults:
+
+        -1 second delay between requests to the same domain
+        -No limit to the number of urls the crawler can visit on the domain
+        -No Depth limit
+        -No prioritized url substrings
+
+    Usage:
+
+        import Control.Concurrent (newChan, reachChan)
+        import Parse (emailParser)
+
+        main :: IO ()
+        main = do
+            let domain = "http://example-website.com"
+            chan <- newChan
+            crawlDefaults 0 domain emailParser chan
+            (_, _, emails) <- readChan chan
+            mapM_ print emails
+
+-}
 
 crawlDefaults :: Ord a => Id-> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> IO ()
-crawlDefaults id' domain parser sendChan = do
-    crawlWithOpts id' domain parser sendChan []
+crawlDefaults id' domain parser sendChan = crawlWithOpts id' domain parser sendChan []
+
+{-
+
+Function: crawlWithOpts
+
+    Parameters:
+            
+        All of the parameters from crawlDefaults plus:
+
+        [Option]:
+                Option is a data type with constructors:
+                    Delay Int: 
+                        Millisecond delay between requests to the same domain.
+                    Limit Int: 
+                        Max number of sub-pages the crawler will visit on one domain.
+                    Depth Int: 
+                        Max 'depth' the crawler will dive into links.
+                    Prioritize [String]: 
+                        A list of substrings that, when contained in a url, will cause 
+                        the url to be pushed to the front of the url queue.
+
+    Defaults:
+
+            The same defaults as crawlDefaults, crawlDefaults just calls this
+            function with the [Option] parameter set to [].
+
+    Usage Example:
+
+        import Control.Concurrent (newChan, reachChan)
+        import Parse (emailParser)
+
+        main :: IO ()
+        main = do
+            let domain = "http://example-website.com"
+            chan <- newChan
+            crawlWithOpts 0 domain emailParser chan [Limit 100, Depth 2, Delay 500]
+            (_, _, emails) <- readChan chan
+            mapM_ print emails
+
+-}
 
 crawlWithOpts :: Ord a => Id -> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> [Option] -> IO ()
 crawlWithOpts id' domain parser sendChan opts = do
@@ -38,6 +153,7 @@ crawlWithOpts id' domain parser sendChan opts = do
     let moddedOpts = modifyDefaults defs opts
     _ <- forkIO $ startRequesting id' moddedOpts parser []
     return ()
+
 
     --- Internal Functions
 
@@ -58,8 +174,8 @@ startRequesting id' opts parse results = do
             return ()
         else do 
             resps <- checkAllChanContents recvChan
-            case (resps, urlQueue) of
 
+            case (resps, urlQueue) of
                 --  If there are no results to process or urls in queue then
                 --  wait 10 seconds for another request to finish 
                 ([], []) -> do
@@ -88,6 +204,7 @@ startRequesting id' opts parse results = do
                     threadDelay (delay * 1000)
                     let newOpts = opts { urlQ = us, vUrls = insert u visitedUrls }
                     startRequesting id' newOpts parse results
+
 
 get :: String -> Chan (ByteString) -> IO ()
 get url chan = go 1 url chan
@@ -122,9 +239,6 @@ checkChan chan = do
     x <- timeout (55000) (readChan chan)
     return x
 
------- Options
-
-data Option = Delay Int | Limit Int | Depth Int | Prioritize [String] deriving (Eq)
 
 data CrawlOpts a = CrawlOpts {
       dom   :: Domain
@@ -162,13 +276,10 @@ defaults domain chan = do
              }
 
 modifyDefaults :: CrawlOpts a -> [Option] -> CrawlOpts a
-modifyDefaults def opts = go def opts
-    where 
-        go :: CrawlOpts a -> [Option] -> CrawlOpts a
-        go opt []     = opt
-        go opt (o:os) =
-            case o of
-                Delay x       -> go (opt { del   = x }) os
-                Limit x       -> go (opt { limit = x }) os
-                Depth x       -> go (opt { depth = x }) os
-                Prioritize xs -> go (opt { prio  = xs }) os
+modifyDefaults def []     = def
+modifyDefaults def (o:os) =
+    case o of
+        Delay x       -> modifyDefaults (def { del   = x }) os
+        Limit x       -> modifyDefaults (def { limit = x }) os
+        Depth x       -> modifyDefaults (def { depth = x }) os
+        Prioritize xs -> modifyDefaults (def { prio  = xs }) os

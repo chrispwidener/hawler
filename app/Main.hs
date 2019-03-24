@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE InstanceSigs #-}
-
 module Main where
 
 import Crawl
@@ -14,9 +11,17 @@ import System.IO
 main :: IO ()
 main = do
     hSetBuffering stdout LineBuffering
-    --chan  <- newChan
-    --mapM_ (startNewCrawl chan 0) urls
-    --waitAndPrint 10 chan
+    chan  <- newChan
+    mapM_ (\dom -> crawlWithOpts 0 dom emailParser chan [Limit 25]) urls
+    waitAndPrint 10 chan
+
+waitAndPrint :: Int -> Chan (Integer, String, [String]) -> IO ()
+waitAndPrint 0 _    = return ()
+waitAndPrint n chan = do
+    (_, dom, results) <- readChan chan
+    putStr $ "\nSearched: " ++ dom ++ "and found:\n" ++ unlines results ++ "\n"
+    waitAndPrint (n-1) chan
+
 
 urls :: [String]
 urls = [
@@ -31,16 +36,3 @@ urls = [
     , "http://www.firstchurchseattle.org/"
     , "http://www.blessed-sacrament.org/"
     ]
-{-
-waitAndPrint :: Int -> Chan (Id, String, [String]) -> IO ()
-waitAndPrint 0 _    = return ()
-waitAndPrint n chan = do
-    (_, dom, results) <- readChan chan
-    putStr $ "\nSearched: " ++ dom ++ "and found:\n" ++ unlines results ++ "\n"
-    waitAndPrint (n-1) chan
-
-startNewCrawl :: Chan (Id, Domain, [String]) -> Id -> Domain -> IO ()
-startNewCrawl chan id' domain = do
-    internalChan <- newChan
-    crawlWithOpts id' domain emailParser (CrawlOpts 1000 chan internalChan 50)
--}
