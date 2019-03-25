@@ -288,11 +288,18 @@ defaults domain chan = do
 modifyOpts :: CrawlOpts a -> [Option] -> CrawlOpts a
 modifyOpts def []     = def
 modifyOpts def (o:os) =
-    case o of
+    let o' = sanitizeOpt o
+    in case o' of
         Delay x       -> modifyOpts (def { del   = x }) os
         Limit x       -> modifyOpts (def { limit = x }) os
         Depth x       -> modifyOpts (def { depth = x }) os
         Prioritize xs -> modifyOpts (def { prio  = xs }) os
+
+sanitizeOpt :: Option -> Option
+sanitizeOpt (Delay x) = Delay $ if x < 300 then 300 else x
+sanitizeOpt (Limit x) = Limit $ if x < 0   then 0 else x
+sanitizeOpt (Depth x) = Depth $ if x < 0   then 0 else x
+sanitizeOpt opt = opt
 
 
 prioritizeUrlQueue :: [String] -> UrlQueue -> UrlQueue
