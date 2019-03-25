@@ -80,14 +80,14 @@ Function: crawlDefaults
                 it's crawling and extracting results
 
         Chan :: Chan (Id, Domain [a])
-                The chan returns a tuple containing the Id, the Domain and the
-                list of results the parser found,  you just need to bind the
-                result of 'Control.Concurrent.newChan' to a variable and pass 
-                it in.  This is the channel that the crawler will send results to.  
+                The crawler will use this channel to return a tuple containing the Id, 
+                the Domain and the list of results the parser found.  You simply need 
+                to bind the result of 'Control.Concurrent.newChan' to a variable and 
+                pass it to this function.  
 
-                The reason I have you pass in a channel rather than this function
-                return a channel is so that you can pass the same channel to multiple 
-                crawlers simultaneously.
+                The reason this function accepts, rather than returns a channel is so
+                that you can pass the channel to multiple domain-crawlers running
+                concurrently.
                 
     Defaults:
 
@@ -96,9 +96,9 @@ Function: crawlDefaults
         -No Depth limit
         -No prioritized url substrings
 
-    Usage:
+    Usage Example:
 
-        import Control.Concurrent (newChan, reachChan)
+        import Control.Concurrent (newChan, readChan)
         import Parse (emailParser)
 
         main :: IO ()
