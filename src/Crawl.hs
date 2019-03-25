@@ -111,7 +111,7 @@ Function: crawlDefaults
 
 -}
 
-crawlDefaults :: Ord a => Id-> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> IO ()
+crawlDefaults :: Eq a => Id-> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> IO ()
 crawlDefaults id' domain parser sendChan = crawlWithOpts id' domain parser sendChan []
 
 {-
@@ -141,7 +141,7 @@ Function: crawlWithOpts
 
     Usage Example:
 
-        import Control.Concurrent (newChan, reachChan)
+        import Control.Concurrent (newChan, readChan)
         import Parse (emailParser)
 
         main :: IO ()
@@ -154,7 +154,7 @@ Function: crawlWithOpts
 
 -}
 
-crawlWithOpts :: Ord a => Id -> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> [Option] -> IO ()
+crawlWithOpts :: Eq a => Id -> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> [Option] -> IO ()
 crawlWithOpts id' domain parser sendChan opts = do
     defs   <- defaults domain sendChan
     let moddedOpts = modifyDefaults defs opts
