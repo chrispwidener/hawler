@@ -99,6 +99,7 @@ Function: crawlDefaults
     Usage Example:
 
         import Control.Concurrent (newChan, readChan)
+        import Crawl (crawlDefaults)
         import Parse (emailParser)
 
         main :: IO ()
@@ -142,6 +143,7 @@ Function: crawlWithOpts
     Usage Example:
 
         import Control.Concurrent (newChan, readChan)
+        import Crawl (crawlWithOpts, Options (..))
         import Parse (emailParser)
 
         main :: IO ()
@@ -297,8 +299,8 @@ modifyOpts def (o:os) =
 
 sanitizeOpt :: Option -> Option
 sanitizeOpt (Delay x) = Delay $ if x < 300 then 300 else x
-sanitizeOpt (Limit x) = Limit $ if x < 0   then 0 else x
-sanitizeOpt (Depth x) = Depth $ if x < 0   then 0 else x
+sanitizeOpt (Limit x) = Limit $ if x < 0   then 0   else x
+sanitizeOpt (Depth x) = Depth $ if x < 0   then 0   else x
 sanitizeOpt opt = opt
 
 
