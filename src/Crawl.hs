@@ -157,7 +157,7 @@ Function: crawlWithOpts
 crawlWithOpts :: Eq a => Id -> Domain -> Parser [a] -> Chan (Id, Domain, [a]) -> [Option] -> IO ()
 crawlWithOpts id' domain parser sendChan opts = do
     defs   <- defaults domain sendChan
-    let moddedOpts = modifyDefaults defs opts
+    let moddedOpts = modifyOpts defs opts
     _ <- forkIO $ startRequesting id' moddedOpts parser []
     return ()
 
@@ -252,14 +252,14 @@ checkChan chan = do
 
 data CrawlOpts a = CrawlOpts {
       dom   :: Domain
-    , sChan :: Chan (Id, Domain, [a]) -- This is the chan the crawler will send results to
-    , rChan :: Chan ByteString        -- This is the internal chan the get requests will use to send responses
-    , del   :: Int                    -- Delay between requests to same domain (Milliseconds)
-    , limit :: Int                    -- Page visit limit for one domain, if it's 0 there is no limit
-    , depth :: Int                    -- 
-    , prio  :: [String]
-    , urlQ  :: UrlQueue
-    , vUrls :: VisitedUrls
+    , sChan :: Chan (Id, Domain, [a]) -- This is the chan the crawler will send results to.
+    , rChan :: Chan ByteString        -- This is the internal chan the get requests will use to send responses.
+    , del   :: Int                    -- Delay between requests to same domain (Milliseconds).
+    , limit :: Int                    -- Page visit limit for one domain, if it's 0 there is no limit.
+    , depth :: Int                    -- The link depth limit, main page is depth 0, links from there are depth 1, etc.
+    , prio  :: [String]               -- A list of substrings that, if present in a url, move it to the top of the queue.
+    , urlQ  :: UrlQueue               -- The queue of urls we have yet to visit.
+    , vUrls :: VisitedUrls            -- The urls already visited on a site.
 } 
 
 instance Show (CrawlOpts a) where
@@ -285,14 +285,14 @@ defaults domain chan = do
                 , prio   = []
              }
 
-modifyDefaults :: CrawlOpts a -> [Option] -> CrawlOpts a
-modifyDefaults def []     = def
-modifyDefaults def (o:os) =
+modifyOpts :: CrawlOpts a -> [Option] -> CrawlOpts a
+modifyOpts def []     = def
+modifyOpts def (o:os) =
     case o of
-        Delay x       -> modifyDefaults (def { del   = x }) os
-        Limit x       -> modifyDefaults (def { limit = x }) os
-        Depth x       -> modifyDefaults (def { depth = x }) os
-        Prioritize xs -> modifyDefaults (def { prio  = xs }) os
+        Delay x       -> modifyOpts (def { del   = x }) os
+        Limit x       -> modifyOpts (def { limit = x }) os
+        Depth x       -> modifyOpts (def { depth = x }) os
+        Prioritize xs -> modifyOpts (def { prio  = xs }) os
 
 
 prioritizeUrlQueue :: [String] -> UrlQueue -> UrlQueue
