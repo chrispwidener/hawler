@@ -118,7 +118,8 @@ extractPatternFromTextTags pat tags = map unpack $ foldr1 (<>) regmatches
 ----- Email Related
 
 emailRegPat :: RE
-emailRegPat = [re|\<[a-zA-Z0-9][a-zA-Z0-9._%+\-]{1,15}[^.\-\+_]@[a-zA-Z0-9\-]+\.[a-z]{2,5}|]
+emailRegPat = [re|\<[a-zA-Z0-9][a-zA-Z0-9._%+\-]{1,15}[^.\-\+_]@[a-zA-Z0-9\-]+\.[a-z]{2,6}|]
+--emailRegPat = [re|\<[a-zA-Z0-9][a-zA-Z0-9._%+\-]{1,15}[^.\-\+_]@[a-zA-Z0-9\-]+\.(com|org|io|church|net|tv)|]
 
 extractAllEmails :: [Tag ByteString] -> [String]
 extractAllEmails tags = nub $ extractMailtoEmails tags <> extractTextEmails tags

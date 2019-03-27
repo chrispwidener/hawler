@@ -91,7 +91,7 @@ Function: crawlDefaults
                 
     Defaults:
 
-        -1 second delay between requests to the same domain
+        -1000 Millisecond delay between requests to the same domain
         -No limit to the number of urls the crawler can visit on the domain
         -No Depth limit
         -No prioritized url substrings
@@ -168,7 +168,7 @@ crawlWithOpts id' domain parser sendChan opts = do
 ---- Internal Functions
 ------------------------------
 
-startRequesting :: Eq a => Id -> CrawlOpts a -> Parser [a] -> [a] -> IO ()
+startRequesting :: Eq a => Id -> CrawlConfig a -> Parser [a] -> [a] -> IO ()
 startRequesting id' opts parse results = do
     let domain      = dom   opts
         recvChan    = rChan opts
@@ -252,7 +252,7 @@ checkChan chan = do
     return x
 
 
-data CrawlOpts a = CrawlOpts {
+data CrawlConfig a = CrawlConfig {
       dom   :: Domain
     , sChan :: Chan (Id, Domain, [a]) -- This is the chan the crawler will send results to.
     , rChan :: Chan ByteString        -- This is the internal chan the get requests will use to send responses.
@@ -264,18 +264,18 @@ data CrawlOpts a = CrawlOpts {
     , vUrls :: VisitedUrls            -- The urls already visited on a site.
 } 
 
-instance Show (CrawlOpts a) where
-    show (CrawlOpts dom _ _ del lim dep pri _ _) = 
+instance Show (CrawlConfig a) where
+    show (CrawlConfig dom _ _ del lim dep pri _ _) = 
         "Options:\nDelay: " ++ show del ++ 
         "\nLimit: " ++         show lim ++ 
         "\nDepth: " ++         show dep ++ 
         "\nPriorities: " ++    show pri
 
 -- Pass in a domain and the return chan to get defaults
-defaults :: Domain -> Chan (Id, Domain, [a]) -> IO (CrawlOpts a)
+defaults :: Domain -> Chan (Id, Domain, [a]) -> IO (CrawlConfig a)
 defaults domain chan = do
     receiveChan <- newChan
-    return $ CrawlOpts {
+    return $ CrawlConfig {
                   dom    = domain
                 , sChan  = chan 
                 , rChan  = receiveChan 
@@ -287,7 +287,7 @@ defaults domain chan = do
                 , prio   = []
              }
 
-modifyOpts :: CrawlOpts a -> [Option] -> CrawlOpts a
+modifyOpts :: CrawlConfig a -> [Option] -> CrawlConfig a
 modifyOpts def []     = def
 modifyOpts def (o:os) =
     let o' = sanitizeOpt o
