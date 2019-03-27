@@ -15,10 +15,10 @@ crawlWithOpts :: Eq a => Integer -> String -> (ByteString -> a) -> Chan (Integer
 
 -- Option is a datatype for creating Crawler Options, it is defined like so:
 data Option =
-      Delay Int
-    | Limit Int
-    | Depth Int
-    | Prioritize [String]
+      Delay Int           -- Millisecond delay between http requests to the same domain
+    | Limit Int           -- Limit to total # of urls crawler will visit on one domain
+    | Depth Int           -- Link depth limit, main page has depth 0, links found on main page have depth 1, etc
+    | Prioritize [String] -- Substrings that, when contained in a link, will send link to top of request queue.
 ```
 
 - The Integer is an ID that the crawler will include in the results of the crawl, this is useful if the site itself is not a unique identifier for saving the results.
