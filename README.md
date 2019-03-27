@@ -21,15 +21,17 @@ data Option =
     | Prioritize [String]
 ```
 
-The Integer is an ID that the crawler will include in the results of the crawl, this is useful if the site itself is not a unique identifier for saving the results.
+- The Integer is an ID that the crawler will include in the results of the crawl, this is useful if the site itself is not a unique identifier for saving the results.
 
-The String is the Site itself.
+- The String is the Site itself.
 
-The ByteString -> a function is the parser that takes the http response and converts it to your results.
+- The ByteString -> a function is the parser that takes the http response and converts it to your results.
 
 ### Hawler Parse exports the following:
 
-` emailParser :: ByteString -> [String]
+`emailParser :: ByteString -> [String]`
+
+This is a default parser that you can plug into the crawler to retrieve email addresses
 
 ## Usage Examples
 
