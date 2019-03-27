@@ -25,7 +25,7 @@ data Option =
 
 - The String is the Site itself.
 
-- The ByteString -> a function is the parser that takes the http response and converts it to your results.
+- The `ByteString` -> a function is the parser that takes the http response and converts it to your results.
 
 ### Hawler Parse exports the following:
 
