@@ -43,7 +43,7 @@ module Main where
 import Crawl
 import Parse (emailParser)
 
-import Control.Concurrent (Chan, newChan, readChan)
+import Control.Concurrent (newChan, readChan)
 
 import System.Environment
 
@@ -66,8 +66,6 @@ import Crawl
 import Parse (emailParser)
 
 import Control.Concurrent (Chan, newChan, readChan)
-
-import System.Environment
 
 main :: IO ()
 main = do
