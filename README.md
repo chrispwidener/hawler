@@ -6,7 +6,7 @@ Hawler is a library for crawling one or more websites to parse and extract infor
 
 ## API
 
-Hawler Crawl exports the following:
+### Hawler Crawl exports the following:
 
 ```
 crawlDefaults :: Eq a => Integer -> String -> (ByteString -> a) -> Chan (Integer, String, [a]) -> IO ()
@@ -21,9 +21,15 @@ data Option =
     | Prioritize [String]
 ```
 
-Hawler Parse exports the following:
+The Integer is an ID that the crawler will include in the results of the crawl, this is useful if the site itself is not a unique identifier for saving the results.
 
-`emailParser :: ByteString -> [String]
+The String is the Site itself.
+
+The ByteString -> a function is the parser that takes the http response and converts it to your results.
+
+### Hawler Parse exports the following:
+
+` emailParser :: ByteString -> [String]
 
 ## Usage Examples
 
