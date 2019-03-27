@@ -1,10 +1,8 @@
-# hawler
-
-## Description:
+# Description:
 
 Hawler is a library for crawling one or more websites to parse and extract information.  The crawler settings are configurable to a certain degree, and some default parsers are included 
 
-## API
+# API
 
 ### Hawler Crawl exports the following:
 
@@ -33,9 +31,9 @@ data Option =
 
 This is a default parser that you can plug into the crawler to retrieve email addresses
 
-## Usage Examples
+# Usage Examples
 
-Crawling a single domain, retrieved from the command line, with defaults:
+Crawling a single domain, retrieved from the command line, with default crawl options:
 
 ```
 module Main where
